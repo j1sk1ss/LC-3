@@ -1,0 +1,33 @@
+#include "../include/cpu.cplh"
+
+function cpu::init(ptr cpu self) -> i0 {
+    self.registers.init();
+    self.pc = 0 as i16;
+}
+
+function cpu::load_code(ptr cpu self, ptr u16 code, i16 code_size) -> i0 {
+    self.memory.init(code, code_size);
+}
+
+function cpu::fetch(ptr cpu self) -> u16 {
+    u16 inst = self.memory.code[self.pc];
+    self.pc += 1;
+    inst
+}
+
+function cpu::execute(ptr cpu self, u16 inst) -> i0 {
+    i8 opcode = (inst >> 12) & 0b1111;
+    @[no_fall] switch opcode; {
+        case ADD; {
+            i8 dr  = (inst >> 9) & 0b111;
+            i8 sr1 = (inst >> 6) & 0b111;
+            if (inst >> 5) & 0b1; {
+                self.registers.set(dr, self.registers.get(sr1) + inst & 0b11111);
+            }
+            else {
+                i8 sr2 = inst & 0b111;
+                self.registers.set(dr, self.registers.get(sr1) + self.registers.get(sr2));
+            }
+        }
+    }
+}

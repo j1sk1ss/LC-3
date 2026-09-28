@@ -1,0 +1,25 @@
+:/ This is a file which containes all possible instructions
+in LC-3. 
+/:
+#ifndef INST_H_
+#define INST_H_ 0
+
+#define ADD  0b0001
+#define AND  0b0101
+#define BR   0b0000
+#define JMP  0b1100
+#define JSR  0b0100
+#define JSRR 0b0100
+#define LD   0b0010
+#define LDI  0b1010
+#define LDR  0b0110
+#define LEA  0b1110
+#define NOT  0b1001
+#define RET  0b1100
+#define RTI  0b1000
+#define ST   0b0011
+#define STI  0b1011
+#define STR  0b0111
+#define TRAP 0b1111
+
+#endif

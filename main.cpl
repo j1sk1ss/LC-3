@@ -1,0 +1,7 @@
+#include "include/cpu.cplh"
+
+start() {
+    cpu c;
+    c.init();
+    exit 0;
+}

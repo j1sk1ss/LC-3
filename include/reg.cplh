@@ -1,0 +1,22 @@
+#ifndef REG_H_
+#define REG_H_ 0
+
+#include <string_h.cpl>
+
+:/ The LC-3 has eight 16-bit general purpose registers R0 to R7.
+This is the general purpose registers of the machine
+/:
+container regs {
+    arr registers[8, u16];
+    
+    @[self] @[inline(model)] @[abi]
+    function init(ptr regs self) -> i0;
+    
+    @[self] @[inline(model)] 
+    function set(ptr regs self, i8 reg, u16 data) -> i0;
+    
+    @[self] @[inline(model)] 
+    function get(ptr regs self, i8 reg) -> u16;
+}
+
+#endif

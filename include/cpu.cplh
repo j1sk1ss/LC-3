@@ -1,0 +1,20 @@
+#ifndef CPU_H_
+#define CPU_H_ 0
+
+#include "mem.cplh"
+#include "reg.cplh"
+#include "inst.cplh"
+
+container cpu {
+    mem  memory;
+    regs registers;
+    i16  pc;
+
+    @[self] @[abi]
+    function init(ptr cpu self) -> i0;
+    @[self] function load_code(ptr cpu self, ptr u16 code, i16 code_size) -> i0;
+    @[self] function fetch(ptr cpu self) -> u16;
+    @[self] function execute(ptr cpu self, u16 inst) -> i0;
+}
+
+#endif

@@ -15,12 +15,27 @@ function cpu::fetch(ptr cpu self) -> u16 {
     inst
 }
 
+@[inline(never)]
+function get_reg(u16 inst, i8 idx) -> i8 {
+    (inst >> (idx * 3)) & 0b111
+}
+
 function cpu::execute(ptr cpu self, u16 inst) -> i0 {
     i8 opcode = (inst >> 12) & 0b1111;
     @[no_fall] switch opcode; {
+        case LD; {
+            i8 dr  = get_reg(inst, 3);
+            i16 off = inst & 0b111111111;
+            self.registers.set(dr, self.memory.get(off + self.pc));
+        }
+        case ST; {
+            i8 sr  = get_reg(inst, 3);
+            i16 off = inst & 0b111111111;
+            self.memory.set(off + self.pc, self.registers.get(sr));
+        }
         case ADD; {
-            i8 dr  = (inst >> 9) & 0b111;
-            i8 sr1 = (inst >> 6) & 0b111;
+            i8 dr  = get_reg(inst, 3);
+            i8 sr1 = get_reg(inst, 2);
             if (inst >> 5) & 0b1; {
                 self.registers.set(dr, self.registers.get(sr1) + inst & 0b11111);
             }

@@ -4,10 +4,10 @@ function regs::init(ptr regs self) -> i0 {
     memset(ref self.registers, 0 as i32, sizeof(self.registers));
 }
 
-function regs::set(ptr regs self, i8 reg, u16 data) -> i0 {
-    self.registers[reg as usize] = data;
+function regs::set(ptr regs self, i8 r, u16 data) -> i0 {
+    self.registers[r as usize] = data;
 }
 
-function regs::get(ptr regs self, i8 reg) -> u16 {
-    self.registers[reg as usize]
+function regs::get(ptr regs self, i8 r) -> u16 {
+    self.registers[r as usize]
 }

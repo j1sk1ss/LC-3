@@ -22,10 +22,10 @@ container regs {
     function init(ptr regs self) -> i0;
     
     @[self] @[inline(model)] 
-    function set(ptr regs self, i8 reg, u16 data) -> i0;
+    function set(ptr regs self, i8 r, u16 data) -> i0;
     
     @[self] @[inline(model)] 
-    function get(ptr regs self, i8 reg) -> u16;
+    function get(ptr regs self, i8 r) -> u16;
 }
 
 #endif

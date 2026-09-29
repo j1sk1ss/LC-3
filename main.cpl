@@ -5,15 +5,22 @@ start() {
     cpu c;
     c.init();
 
-    c.registers.set(R0, 0b001);
-    c.registers.set(R1, 0b001);
-
-    arr code[1, u16] = {
-        0b0001010000000001 :/ arr r3, r0, r1 /:
+    arr code[6, u16] = {
+        0b0010000000000011 as u16, :/ ld r0, #3 <- memory[6] /:
+        0b0010001000000011 as u16, :/ ld r1, #3 <- memory[7] /:
+        0b0001010000000001 as u16, :/ add r2, r0, r1         /:
+        0b0000000000000000 as u16, :/ nop                    /:
+        0b0000000000000001 as u16, :/ data                   /:
+        0b0000000000000001 as u16
     };
 
     c.load_code(ref code, sizeof(code) as i16);
-    c.execute(c.fetch());
+
+    u16 inst = c.fetch();
+    while inst; {
+        c.execute(inst);
+        inst = c.fetch();
+    }
 
     printf(ref "%b\n", (c.registers.get(R2) & 0b111) as isize);
     exit 0;

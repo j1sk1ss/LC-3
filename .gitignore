@@ -1,0 +1,6 @@
+*.s
+*.asm
+*.log
+*.text
+*.txt
+*.out

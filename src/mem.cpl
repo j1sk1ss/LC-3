@@ -1,0 +1,5 @@
+#include "../include/mem.cplh"
+
+function mem::init(ptr mem self, ptr u16 code, i16 code_size) -> i0 {
+    memcpy(ref self.code, code, code_size as u64);
+}

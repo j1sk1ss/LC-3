@@ -1,11 +1,13 @@
 #ifndef MEM_H_
 #define MEM_H_ 0
 
+#include <string_h.cpl>
+
 container mem {
     arr code[65536, u16];
 
     @[self] @[abi]
-    function init(ptr mem self, ptr u16 code, i16 code_size) -> i0;
+    function init(ptr mem self, @[not_null] ptr u16 code, i16 code_size) -> i0;
 }
 
 #endif

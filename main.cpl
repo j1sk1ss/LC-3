@@ -1,7 +1,20 @@
 #include "include/cpu.cplh"
+#include <stdio_h.cpl>
 
 start() {
     cpu c;
     c.init();
+
+    c.registers.set(R0, 0b001);
+    c.registers.set(R1, 0b001);
+
+    arr code[1, u16] = {
+        0b0001010000000001 :/ arr r3, r0, r1 /:
+    };
+
+    c.load_code(ref code, sizeof(code) as i16);
+    c.execute(c.fetch());
+
+    printf(ref "%b\n", (c.registers.get(R2) & 0b111) as isize);
     exit 0;
 }

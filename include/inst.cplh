@@ -1,6 +1,7 @@
 :/ This is a file which containes all possible instructions
 in LC-3. 
 Docs: https://hwang.lasierra.edu/~enoch/CPTG%20245/LC-3/LC-3%20Instructions.pdf
+Lecture: https://www.cs.utexas.edu/~fussell/courses/cs310h/lectures/Lecture_10-310h.pdf
 /:
 #ifndef INST_H_
 #define INST_H_ 0

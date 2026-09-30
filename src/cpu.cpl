@@ -1,3 +1,6 @@
+:/ This is the main logic file where we implement CPU logic.
+   The main routine is execute function, where every instruction is decoded
+   and executed. /:
 #include "../include/cpu.cplh"
 
 function cpu::init(ptr cpu self) -> i0 {
@@ -15,50 +18,87 @@ function cpu::fetch(ptr cpu self) -> u16 {
     inst
 }
 
-@[inline(never)]
-function get_reg(u16 inst, i8 idx) -> i8 {
+@[inline(never)] function get_reg_index(u16 inst, i8 idx) -> i8 {
     (inst >> (idx * 3)) & 0b111
 }
 
 function cpu::execute(ptr cpu self, u16 inst) -> i0 {
     i8 opcode = (inst >> 12) & 0b1111;
     @[no_fall] switch opcode; {
+        case TRAP; {
+            i8 trap = inst & 0b1111111;
+            @[no_fall] @[straight] switch trap; {
+                case 0x20; self.registers.set(R0, getc(stdin) as u16);
+                case 0x21; putc((self.registers.get(R0) & 0b11111111) as i32, stdout);
+                case 0x22; puts(self.registers.get(R0) as ptr i8);
+                case 0x23; {}
+                case 0x25; {
+                    printf(ref "HALT\n");
+                    loop {}
+                }
+            }
+        }
+        case BR; {
+            i8 p    = (inst >> 9)  & 0b1;
+            i8 z    = (inst >> 10) & 0b1;
+            i8 n    = (inst >> 11) & 0b1;
+            i16 off = (inst & 0b111111111) as i16;
+            if 
+                (self.registers.get_n() && n) ||
+                (self.registers.get_z() && z) ||
+                (self.registers.get_p() && p);
+            self.pc += off;
+        }
+        case JMP; {
+            i8 baseR = get_reg_index(inst, 2);
+            self.pc = self.registers.get(baseR);
+        }
         case LEA; {
-            i8 dr   = get_reg(inst, 3);
-            i16 off = inst & 0b111111111;
+            i8 dr   = get_reg_index(inst, 3);
+            i16 off = (inst & 0b111111111) as i16;
             self.registers.set(dr, off + self.pc);
         }
         case LD; {
-            i8 dr   = get_reg(inst, 3);
-            i16 off = inst & 0b111111111;
+            i8 dr   = get_reg_index(inst, 3);
+            i16 off = (inst & 0b111111111) as i16;
             self.registers.set(dr, self.memory.get(off + self.pc));
         }
         case ST; {
-            i8 sr   = get_reg(inst, 3);
-            i16 off = inst & 0b111111111;
+            i8 sr   = get_reg_index(inst, 3);
+            i16 off = (inst & 0b111111111) as i16;
             self.memory.set(off + self.pc, self.registers.get(sr));
         }
         case AND; {
-            i8 dr  = get_reg(inst, 3);
-            i8 sr1 = get_reg(inst, 2);
+            u16 res;
+            i8 dr  = get_reg_index(inst, 3);
+            i8 sr1 = get_reg_index(inst, 2);
             if (inst >> 5) & 0b1; {
-                self.registers.set(dr, self.registers.get(sr1) & inst & 0b11111);
+                res = self.registers.get(sr1) & (inst & 0b11111) as i16;
+                self.registers.set(dr, res);
             }
             else {
                 i8 sr2 = inst & 0b111;
-                self.registers.set(dr, self.registers.get(sr1) & self.registers.get(sr2));
+                res = self.registers.get(sr1) & self.registers.get(sr2);
+                self.registers.set(dr, res);
             }
+
+            self.registers.set_nzp(res);
         }
         case ADD; {
-            i8 dr  = get_reg(inst, 3);
-            i8 sr1 = get_reg(inst, 2);
-            if (inst >> 5) & 0b1; {
-                self.registers.set(dr, self.registers.get(sr1) + inst & 0b11111);
+            u16 res;
+            i8 dr  = get_reg_index(inst, 3);
+            i8 sr1 = get_reg_index(inst, 2);
+            if ((inst >> 5) & 0b1) as i32; {
+                res = self.registers.get(sr1) + (inst & 0b11111) as i16;
+                self.registers.set(dr, res);
             }
             else {
                 i8 sr2 = inst & 0b111;
-                self.registers.set(dr, self.registers.get(sr1) + self.registers.get(sr2));
+                res = self.registers.get(sr1) + self.registers.get(sr2);
+                self.registers.set(dr, res);
             }
+
+            self.registers.set_nzp(res);
         }
     }
 }

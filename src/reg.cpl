@@ -4,10 +4,46 @@ function regs::init(ptr regs self) -> i0 {
     memset(ref self.registers, 0 as i32, sizeof(self.registers));
 }
 
+function regs::get(ptr regs self, i8 r) -> u16 {
+    self.registers[r as usize]
+}
+
 function regs::set(ptr regs self, i8 r, u16 data) -> i0 {
     self.registers[r as usize] = data;
 }
 
-function regs::get(ptr regs self, i8 r) -> u16 {
-    self.registers[r as usize]
+function regs::set_n(ptr regs self, i8 n) -> i0 {
+    self.n = n;
+    self.z = 0;
+    self.p = 0;
+}
+
+function regs::get_n(ptr regs self) -> i8 {
+    self.n
+}
+
+function regs::set_z(ptr regs self, i8 z) -> i0 {
+    self.z = z;
+    self.n = 0;
+    self.p = 0;
+}
+
+function regs::get_z(ptr regs self) -> i8 {
+    self.z
+}
+
+function regs::set_p(ptr regs self, i8 p) -> i0 {
+    self.p = p;
+    self.z = 0;
+    self.n = 0;
+}
+
+function regs::get_p(ptr regs self) -> i8 {
+    self.p
+}
+
+function regs::set_nzp(ptr regs self, u16 val) -> i0 {
+    if not val;      self.set_z(1);
+    else if val > 0; self.set_p(1);
+    else             self.set_n(1);
 }

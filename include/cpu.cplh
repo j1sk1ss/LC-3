@@ -15,7 +15,8 @@ container cpu {
     @[self] @[abi] 
     function load_code(ptr cpu self, @[not_null] ptr u16 code, i16 code_size) -> i0;
     @[self] function fetch(ptr cpu self) -> u16;
-    @[self] function execute(ptr cpu self, u16 inst) -> i0;
+    @[self] @[abi]
+    function execute(ptr cpu self, u16 inst) -> i0;
 }
 
 #endif

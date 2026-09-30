@@ -1,3 +1,5 @@
+:/ This is the main register block of the CPU. Any logic with
+   registers must be placed here /:
 #ifndef REG_H_
 #define REG_H_ 0
 
@@ -12,20 +14,42 @@
 #define R6 6
 #define R7 7
 
-:/ The LC-3 has eight 16-bit general purpose registers R0 to R7.
+:/ The LC-3 has eight 16-bit general purpose registers r0 to r7.
 This is the general purpose registers of the machine
 /:
 container regs {
     arr registers[8, u16];
-    
-    @[self] @[inline(model)] @[abi]
+
+    :/ Set registers to zero (initial data) 
+       via memset /:
+    @[self] @[inline(model)] @[abi] 
     function init(ptr regs self) -> i0;
-    
-    @[self] @[inline(model)] 
-    function set(ptr regs self, i8 r, u16 data) -> i0;
-    
-    @[self] @[inline(model)] 
-    function get(ptr regs self, i8 r) -> u16;
+    @[self] @[inline(model)] function set(ptr regs self, i8 r, u16 data) -> i0;
+    @[self] @[inline(model)] function get(ptr regs self, i8 r) -> u16;
+
+    :/ Negative flag /:
+    i8 n;
+    @[self] function set_n(ptr regs self, i8 n) -> i0;
+    @[self] function get_n(ptr regs self) -> i8;
+
+    :/ Zero flag /:
+    i8 z;
+    @[self] function set_z(ptr regs self, i8 z) -> i0;
+    @[self] function get_z(ptr regs self) -> i8;
+
+    :/ Positive flag /:
+    i8 p;
+    @[self] function set_p(ptr regs self, i8 p) -> i0;
+    @[self] function get_p(ptr regs self) -> i8;
+
+    :/ Set N,Z and P based on a value.
+       If the value is greater than zero, sets N=0, Z=0, P=1
+       If the value is zero, sets N=0, Z=1, P=0
+       and if the value is lower than zero, sets N=1, Z=0, P=0
+       
+    P.S.: This functions doesn't set two flags at once, only one
+          flag at the time /:
+    @[self] function set_nzp(ptr regs self, u16 val) -> i0;
 }
 
 #endif

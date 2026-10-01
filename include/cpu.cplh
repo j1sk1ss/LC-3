@@ -5,6 +5,7 @@
 #include "reg.cplh"
 #include "inst.cplh"
 
+:/ Main Virtual Machine container /:
 container cpu {
     mem  memory;
     regs registers;

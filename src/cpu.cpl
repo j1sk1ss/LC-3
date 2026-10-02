@@ -65,9 +65,9 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         }
         :/ br<pzn> / ret /:
         case BR; {
-            i8 p    = (inst >> 9)  & 0b1;
-            i8 z    = (inst >> 10) & 0b1;
-            i8 n    = (inst >> 11) & 0b1;
+            i8 p = (inst >> 9)  & 0b1;
+            i8 z = (inst >> 10) & 0b1;
+            i8 n = (inst >> 11) & 0b1;
             if 
                 not p && not z && not n &&
                 get_reg_index(inst, 2) == 0b111;
@@ -127,6 +127,20 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
             i8 sr   = get_reg_index(inst, 3);
             i16 off = (inst & 0b111111111) as i16;
             self.memory.set(off + self.pc, self.registers.get(sr));
+        }
+        :/ sti sr, <addr> /:
+        case STI; {
+            i8 dr    = get_reg_index(inst, 3);
+            i16 off  = (inst & 0b111111111) as i16;
+            i16 pres = self.memory.get(off + self.pc);
+            self.memory.set(pres, self.registers.get(dr));
+        }
+        :/ str sr, <addr> /:
+        case STR; {
+            i8 off   = (inst & 0b111111) as i8;
+            i8 baseR = get_reg_index(inst, 2);
+            i8 dr    = get_reg_index(inst, 3);
+            self.memory.set(baseR + off + self.pc, self.registers.get(dr));
         }
         :/ and dr, sr1 / imm /:
         case AND; {

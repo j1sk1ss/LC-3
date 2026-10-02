@@ -4,3 +4,4 @@
 *.text
 *.txt
 *.out
+__pycache__

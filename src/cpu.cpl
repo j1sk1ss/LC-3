@@ -46,7 +46,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
             @[no_fall] @[straight] switch trap; {
                 case 0x20; self.registers.set(R0, getc(stdin) as u16);
                 case 0x21; putc((self.registers.get(R0) & 0b11111111) as i32, stdout);
-                case 0x22; puts(self.registers.get(R0) as ptr i8);
+                case 0x22; puts(self.memory.get(self.registers.get(R0)) as ptr i8);
                 case 0x23; {}
                 case 0x25; {
                     printf(ref "\n");

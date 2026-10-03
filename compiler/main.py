@@ -12,6 +12,17 @@ if __name__ == "__main__":
     try:
         tokenizer: LC3Tokenizer = LC3Tokenizer(LC3Tokenizer.read_lc3_file(args.filename))
         coder: LC3Coder = LC3Coder(tokenizer)
-        print(coder.get_next_word())
+
+        while True:
+            try:
+                coder.encode_next_word()
+            except EncodingWarning as ex:
+                raise Exception("Raw encoding error!") from ex
+            except Exception as _:
+                break
+
+        coder.link_labels()
+        ready: list[str] = coder.encode()
+        print(ready)
     except Exception as ex:
         raise KeyboardInterrupt() from ex

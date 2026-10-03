@@ -3,8 +3,11 @@ from __future__ import annotations
 from enum import Enum
 
 class LC3Opcodes(Enum):
-    NOP  = 0b0000
+    # NOP  = 0b0000
     BR   = 0b0000
+    BRZ  = 999998 # sets z
+    BRP  = 999997 # sets p
+    BRN  = 999996 # sets n
     ADD  = 0b0001
     AND  = 0b0101
     JMP  = 0b1100
@@ -15,12 +18,19 @@ class LC3Opcodes(Enum):
     LDR  = 0b0110
     LEA  = 0b1110
     NOT  = 0b1001
-    RET  = 0b1100
+    RET  = 999995
     RTI  = 0b1000
     ST   = 0b0011
     STI  = 0b1011
     STR  = 0b0111
     TRAP = 0b1111
+    LB   = 999999
+
+    ORIG = 100000
+    FILL = 100001
+    BLKW = 100002
+    STRZ = 100003
+    END  = 100004
 
     def to_string(self) -> str:
         return f"{self.value:04b}"
@@ -28,10 +38,26 @@ class LC3Opcodes(Enum):
     @staticmethod
     def from_string(opcode: str) -> LC3Opcodes:
         match opcode.upper():
+            case ".ORIG":
+                return LC3Opcodes.ORIG
+            case ".FILL":
+                return LC3Opcodes.FILL
+            case ".BLKW":
+                return LC3Opcodes.BLKW
+            case ".STRZ":
+                return LC3Opcodes.STRZ
+            case ".END":
+                return LC3Opcodes.END
             case "NOP":
                 return LC3Opcodes.NOP
             case "BR":
                 return LC3Opcodes.BR
+            case "BRZ":
+                return LC3Opcodes.BRZ
+            case "BRN":
+                return LC3Opcodes.BRN
+            case "BRP":
+                return LC3Opcodes.BRP
             case "ADD":
                 return LC3Opcodes.ADD
             case "AND":
@@ -65,7 +91,7 @@ class LC3Opcodes(Enum):
             case "TRAP":
                 return LC3Opcodes.TRAP
             case _:
-                raise ValueError(f"Unknown LC-3 opcode: {opcode}")
+                return LC3Opcodes.LB
 
 class LC3Registers(Enum):
     R0 = 0
@@ -112,10 +138,13 @@ class LC3Tokenizer:
     def get_next_line(self) -> None:
         """ Get the current counter, get a line from the code by this
             counter, than increment the counter.
+
+            P.S.: Will throw an exception when encounter situation
+                  where counter larger than code size
         """
         if self.counter >= len(self.code):
-            return None
-
+            raise Exception("EOF")
+        
         self.counter += 1
 
     def get_tokens(self) -> list[str]:
@@ -125,7 +154,8 @@ class LC3Tokenizer:
             consists from parts that are separated by comma.
         """
         import re
-        return re.split(r'[,\s]', self.code[self.counter])
+        line = self.code[self.counter].strip()
+        return re.findall(r'"(?:\\.|[^"\\])*"|[^,\s]+', line)
 
     @staticmethod
     def read_lc3_file(path: str) -> list[str]:

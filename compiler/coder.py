@@ -1,63 +1,185 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from tokenizer import LC3Tokenizer, LC3Registers, LC3Opcodes
+from smt import (
+    LC3Word, LC3Reg, LC3Padd, 
+    LC3Imm, LC3Symtable, LC3PaddBody, 
+    LC3Lb, LC3String
+)
 
-class LC3Body:
-    def __init__(self) -> None:
-        pass
-
-    def encode(self) -> str:
-        pass
-
-class LC3Imm(LC3Body):
-    def __init__(self, value: int) -> None:
-        self.value: int = value
-
-    def encode(self) -> str:
-        return f"{self.value:03b}"
-
-class LC3Reg(LC3Body):
-    def __init__(self, value: LC3Registers) -> None:
-        self.value: LC3Registers = value
-
-    def encode(self) -> str:
-        return f"{self.value.value:03b}"
-
-class LC3Padd(LC3Body):
-    def __init__(self, value: int = 0, size: int = 1):
-        self.value: int = value
-        self.size: int = size
-
-    def encode(self) -> str:
-        return f"{self.value:0{self.size}b}"
-
-class LC3Word:
-    def __init__(self, op: LC3Opcodes, body: list[LC3Body]) -> None:
-        self.op: LC3Opcodes     = op
-        self.body: list[LC3Body] = body
-
-    def encode(self) -> str:
-        return "".join([f"{self.op.to_string()}", *[x.encode() for x in self.body]])
+@dataclass
+class LC3CoderState:
+    raw_encoded: bool
+    linked: bool
 
 class LC3Coder:
-    def __init__(self, tokenizer: LC3Tokenizer) -> None:
+    def __init__(self, tokenizer: LC3Tokenizer, baddr: int = 0x00) -> None:
         self.tokenizer: LC3Tokenizer = tokenizer
+        self.smt: LC3Symtable        = LC3Symtable()
+        self.words: list[LC3Word]    = []
+        self.baddr: int              = baddr
+        self.state: LC3CoderState    = LC3CoderState(False, False)
 
-    def get_next_word(self) -> str:
+    def encode_next_word(self) -> None:
+        """ Get a line from a tokenizer, tokenize it, and
+            convert it to a LC3Word raw object.
+
+            P.S.: Will throw an exception when encounter EOF
+                  from the tokenizer
+        """
+        if self.state.raw_encoded:
+            raise Exception("Already encoded!") from ex
+
         word: LC3Word | None = None
 
-        self.tokenizer.get_next_line()
-        tokens: list[str] = self.tokenizer.get_tokens()
+        try:
+            tokens: list[str] = self.tokenizer.get_tokens()
+            op: LC3Opcodes = LC3Opcodes.from_string(tokens[0])
+            self.tokenizer.get_next_line()
+        except Exception as ex:
+            self.state.raw_encoded = True
+            raise Exception("EOF") from ex
 
-        op: LC3Opcodes = LC3Opcodes.from_string(tokens[0])
-        match op:
-            case LC3Opcodes.ADD, LC3Opcodes.AND:
-                dr, sr1, data = LC3Registers.from_string(tokens[1]), LC3Registers.from_string(tokens[2]), LC3Registers.from_string(tokens[3])
-                if data is LC3Registers.NOT_A_REGISTER:
-                    word = LC3Word(op, [ LC3Reg(dr), LC3Reg(sr1), LC3Padd(size=1), LC3Imm(int(tokens[3])) ])
-                else:
-                    word = LC3Word(op, [ LC3Reg(dr), LC3Reg(sr1), LC3Padd(size=3), LC3Reg(data) ])
+        try:
+            match op:
+                case LC3Opcodes.ORIG:
+                    self.baddr = int(tokens[1], 0)
+                    return
+                case LC3Opcodes.ADD | LC3Opcodes.AND:
+                    dr, sr1, data = LC3Registers.from_string(tokens[1]), LC3Registers.from_string(tokens[2]), LC3Registers.from_string(tokens[3])
+                    if data is LC3Registers.NOT_A_REGISTER:
+                        word = LC3Word(op, [ LC3Reg(dr), LC3Reg(sr1), LC3Padd(size=1), LC3Imm(int(tokens[3])) ])
+                    else:
+                        word = LC3Word(op, [ LC3Reg(dr), LC3Reg(sr1), LC3Padd(size=3), LC3Reg(data) ])
+                case LC3Opcodes.BR | LC3Opcodes.BRP | LC3Opcodes.BRN | LC3Opcodes.BRZ:
+                    word = LC3Word(
+                        LC3Opcodes.BR,
+                        [ 
+                            LC3Padd(size=1, value=1 if op == LC3Opcodes.BRN else 0), 
+                            LC3Padd(size=1, value=1 if op == LC3Opcodes.BRZ else 0),
+                            LC3Padd(size=1, value=1 if op == LC3Opcodes.BRP else 0),
+                            self.smt.get_or_create_label(tokens[1], 9)
+                        ]
+                    )
+                case LC3Opcodes.JMP:
+                    word = LC3Word(op, [ LC3Padd(size=3), LC3Reg(LC3Registers.from_string(tokens[1])), LC3Padd(size=6) ])
+                case LC3Opcodes.JSR:
+                    word = LC3Word(op, [ LC3Padd(size=1), self.smt.get_or_create_label(tokens[1], 11) ])
+                case LC3Opcodes.JSRR:
+                    word = LC3Word(op, [ LC3Padd(size=3), LC3Reg(LC3Registers.from_string(tokens[1])), LC3Padd(size=6) ])
+                case LC3Opcodes.LD | LC3Opcodes.LDI | LC3Opcodes.ST | LC3Opcodes.STI | LC3Opcodes.LEA:
+                    word = LC3Word(op, [ LC3Reg(LC3Registers.from_string(tokens[1])), self.smt.get_or_create_label(tokens[2], 9) ])
+                case LC3Opcodes.LDR | LC3Opcodes.STR:
+                    word = LC3Word(
+                        op, [ 
+                            LC3Reg(LC3Registers.from_string(tokens[1])), 
+                            LC3Reg(LC3Registers.from_string(tokens[2])), 
+                            LC3Imm(int(tokens[3]), 6)
+                        ]
+                    )
+                case LC3Opcodes.NOT:
+                    word = LC3Word(op, [ LC3Reg(LC3Registers.from_string(tokens[1])), LC3Reg(LC3Registers.from_string(tokens[2])), LC3Padd(1, 6) ])
+                case LC3Opcodes.RET:
+                    word = LC3Word(LC3Opcodes.JMP, [ LC3Padd(0, 3), LC3Padd(1, 3), LC3Padd(0, 6) ])
+                case LC3Opcodes.RTI:
+                    word = LC3Word(op, [LC3Padd(0, 12) ])
+                case LC3Opcodes.TRAP:
+                    command: str = tokens[1]
+                    word = LC3Word(op, [ LC3Padd(0, 4), LC3Imm(
+                        value=(
+                            0x20 if command.upper() == "GETC" else 
+                            0x21 if command.upper() == "OUT"  else 
+                            0x22 if command.upper() == "PUTS" else 
+                            0x23 if command.upper() == "IN"   else 
+                            0x25 if command.upper() == "HALT" else 
+                            0x00
+                        )
+                    ) ])
+                case _:
+                    if tokens[0].split()[-1][-1] == ':':
+                        word = LC3Word(LC3Opcodes.LB, [ self.smt.get_or_create_label(tokens[0][:-1], 16) ])
+                    else:
+                        if LC3Opcodes.from_string(tokens[0]) == LC3Opcodes.END:
+                            return
+                        
+                        match LC3Opcodes.from_string(tokens[1]):
+                            case LC3Opcodes.FILL:
+                                word = LC3Word(op, [ self.smt.get_or_create_label(tokens[0], 16), LC3Imm(int(tokens[2], 0), 16) ])
+                            case LC3Opcodes.BLKW:
+                                defset: LC3Imm = LC3Imm(0, 16)
+                                if len(tokens) >= 4:
+                                    defset = LC3Imm(int(tokens[3], 0), 16)
 
-        return word.encode() if word else ""
+                                word = LC3Word(op, [ self.smt.get_or_create_label(tokens[0], 16), LC3Imm(int(tokens[2], 0)), defset ])
+                            case LC3Opcodes.STRZ:
+                                word = LC3Word(op, [ self.smt.get_or_create_label(tokens[0], 16), LC3String(tokens[2]) ])
+        except Exception as ex:
+            raise EncodingWarning("Label encode error!") from ex
 
+        if not word:
+            raise EncodingWarning(f"Operation {op.name} can't be handled!")
 
+        self.words.append(word)
+
+    def link_labels(self) -> None:
+        """ !! Invoke this function after encoding !!
+            Will link labels and allocate addresses for them.
+
+            P.S.: Can't be invoked twice! Will throw an exception!
+        """
+        if not self.state.raw_encoded:
+            raise Exception("There is now raw encoding yet!")
+
+        if self.state.linked:
+            raise Exception("Already linked!")
+
+        off: int = self.baddr
+        for word in self.words:
+            if (
+                word.op in (LC3Opcodes.LB, LC3Opcodes.FILL, LC3Opcodes.BLKW, LC3Opcodes.STRZ) and 
+                isinstance(word.body[0], LC3PaddBody) and 
+                isinstance(word.body[0].cont, LC3Lb)
+            ):
+                word.body[0].cont.set_addr(off)
+
+            match word.op:
+                case LC3Opcodes.FILL:
+                    off += 2
+                case LC3Opcodes.BLKW if isinstance(word.body[1], LC3Imm):
+                    off += word.body[1].value * 2
+                case LC3Opcodes.STRZ if isinstance(word.body[1], LC3String):
+                    off += (len(word.body[1].string) + 1) // 2 * 2
+
+            off += 2 # 16 bits for a word -> 2 bytes offset per each instruction
+
+        self.state.linked = True
+
+    def encode(self) -> list[str]:
+        """ Get the final encoded sequence of
+            instructions
+        """
+        if not self.state.linked:
+            raise Exception("There is now link for the raw encoding!")
+
+        pc: int = 0
+        body: list[str] = []
+
+        for word in self.words:
+            match word.op:
+                case LC3Opcodes.LB:
+                    continue
+                case LC3Opcodes.BLKW if isinstance(word.body[1], LC3Imm) and isinstance(word.body[2], LC3Imm):
+                    for _ in range(word.body[1].value):
+                        body.append(word.body[2].encode())
+                case LC3Opcodes.STRZ if isinstance(word.body[1], LC3String):
+                    for block in word.body[1].blocks:
+                        body.append(block)
+                case _:
+                    word.relink(pc)
+                    body.append(word.encode())
+
+            pc += 1
+
+        return body

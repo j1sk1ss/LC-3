@@ -31,6 +31,7 @@ class LC3Opcodes(Enum):
     BLKW = 100002
     STRZ = 100003
     END  = 100004
+    EXRN = 100005
 
     def to_string(self) -> str:
         return f"{self.value:04b}"
@@ -38,6 +39,8 @@ class LC3Opcodes(Enum):
     @staticmethod
     def from_string(opcode: str) -> LC3Opcodes:
         match opcode.upper():
+            case ".EXTERN":
+                return LC3Opcodes.EXRN
             case ".ORIG":
                 return LC3Opcodes.ORIG
             case ".FILL":
@@ -48,8 +51,6 @@ class LC3Opcodes(Enum):
                 return LC3Opcodes.STRZ
             case ".END":
                 return LC3Opcodes.END
-            case "NOP":
-                return LC3Opcodes.NOP
             case "BR":
                 return LC3Opcodes.BR
             case "BRZ":

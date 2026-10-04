@@ -20,6 +20,7 @@ class LC3Coder:
         self.smt: LC3Symtable        = LC3Symtable()
         self.words: list[LC3Word]    = []
         self.baddr: int              = baddr
+        self.size: int               = 0
         self.state: LC3CoderState    = LC3CoderState(False, False)
 
     def encode_next_word(self) -> None:
@@ -44,6 +45,8 @@ class LC3Coder:
 
         try:
             match op:
+                case LC3Opcodes.EXRN:
+                    word = LC3Word(op, [ self.smt.get_or_create_label(tokens[1], 16) ])
                 case LC3Opcodes.ORIG:
                     self.baddr = int(tokens[1], 0)
                     return
@@ -125,24 +128,25 @@ class LC3Coder:
         if self.state.linked:
             raise Exception("Already linked!")
 
-        off: int = self.baddr
+        self.smt.set_baddr(self.baddr)
+
         for word in self.words:
             if (
                 word.op in (LC3Opcodes.LB, LC3Opcodes.FILL, LC3Opcodes.BLKW, LC3Opcodes.STRZ) and 
                 isinstance(word.body[0], LC3PaddBody) and 
                 isinstance(word.body[0].cont, LC3Lb)
             ):
-                word.body[0].cont.set_addr(off)
+                word.body[0].cont.set_addr(self.size)
 
             match word.op:
-                case LC3Opcodes.LB:
+                case LC3Opcodes.LB | LC3Opcodes.EXRN:
                     continue
                 case LC3Opcodes.BLKW if isinstance(word.body[1], LC3Imm):
-                    off += word.body[1].value
+                    self.size += word.body[1].value
                 case LC3Opcodes.STRZ if isinstance(word.body[1], LC3String):
-                    off += len(word.body[1].string) + 1
+                    self.size += len(word.body[1].string) + 1
                 case _:
-                    off += 1 # 16 bits for a word -> LC-3 base counter
+                    self.size += 1 # 16 bits for a word -> LC-3 base counter
 
         self.state.linked = True
 
@@ -157,21 +161,27 @@ class LC3Coder:
         body: list[str] = []
 
         for word in self.words:
-            if word.op is LC3Opcodes.LB:
+            if word.op in (LC3Opcodes.LB, LC3Opcodes.EXRN):
                 continue
 
-            pc += 1
-            match word.op:
-                case LC3Opcodes.FILL:
-                    body.append(word.body[1].encode())
-                case LC3Opcodes.BLKW if isinstance(word.body[1], LC3Imm) and isinstance(word.body[2], LC3Imm):
-                    for _ in range(word.body[1].value):
-                        body.append(word.body[2].encode())
-                case LC3Opcodes.STRZ if isinstance(word.body[1], LC3String):
-                    for block in word.body[1].blocks:
-                        body.append(block)
-                case _:
-                    word.relink(pc)
-                    body.append(word.encode())
+            try:
+                match word.op:
+                    case LC3Opcodes.FILL:
+                        body.append(word.body[1].encode())
+                        pc += 1
+                    case LC3Opcodes.BLKW if isinstance(word.body[1], LC3Imm) and isinstance(word.body[2], LC3Imm):
+                        for _ in range(word.body[1].value):
+                            body.append(word.body[2].encode())
+                            pc += 1
+                    case LC3Opcodes.STRZ if isinstance(word.body[1], LC3String):
+                        for block in word.body[1].blocks:
+                            body.append(block)
+                            pc += 1
+                    case _:
+                        pc += 1
+                        word.relink(self.baddr + pc)
+                        body.append(word.encode())
+            except Exception as ex:
+                raise EncodingWarning(f"Can't encode {word}!") from ex
 
         return body

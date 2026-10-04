@@ -12,7 +12,7 @@ build-vm:
 	$(CPL) $(SRC) $(CPL_FLAGS)
 
 compile-code:
-	$(PY) $(LC3) main.s
+	$(PY) $(LC3) main.s lib.s
 
 run: build-vm compile-code
 	./a.out output.o

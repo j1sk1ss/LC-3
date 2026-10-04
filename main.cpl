@@ -1,68 +1,32 @@
 #include "include/cpu.cplh"
 #include <stdio_h.cpl>
 
-start() {
+@[abi]
+start(i32 argc, ptr ptr i8 argv) {
     cpu c;
     c.init();
 
-    arr code[54, u16] = {
-        0b1110110000000101u16, :/  0: lea r6,#5 -> r6=6 /:
-        0b0100000110000000u16, :/  1: jsr r6 -> call 6, r7=3 /:
-        0b0001000000101111u16, :/  2: skipped /:
-        0b1110110000000110u16, :/  3: lea r6,#6 -> r6=10 /:
-        0b1100000110000000u16, :/  4: jmp r6 -> 10 /:
-        0b0000000000000000u16, :/  5: unused /:
-        0b0010000000100010u16, :/  6: ld r0,#34 -> 'H' /:
-        0b1111000000100001u16, :/  7: trap x21 -> H /:
-        0b0000000111000000u16, :/  8: ret -> pc=r7=3 /:
-        0b0000000000000000u16, :/  9: unused /:
-        0b0101001001100000u16, :/ 10: and r1,r1,#0 -> Z /:
-        0b0000010000000001u16, :/ 11: brz #1 -> 13 /:
-        0b0001000000100001u16, :/ 12: skipped /:
-        0b0001001001100001u16, :/ 13: add r1,r1,#1 /:
-        0b1010000000011011u16, :/ 14: ldi r0,#27 -> 'e' /:
-        0b1111000000100001u16, :/ 15: trap x21 -> e /:
-        0b0110000000011011u16, :/ 16: ldr r0,r0,#27 -> 'l' /:
-        0b1111000000100001u16, :/ 17: trap x21 -> l /:
-        0b0011000000011010u16, :/ 18: st r0,#26 -> mem[45]='l' /:
-        0b0010000000011001u16, :/ 19: ld r0,#25 -> mem[45] /:
-        0b1111000000100001u16, :/ 20: trap x21 -> l /:
-        0b0010000000011000u16, :/ 21: ld r0,#24 -> 'o' /:
-        0b1111000000100001u16, :/ 22: trap x21 -> o /:
-        0b0010000000010111u16, :/ 23: ld r0,#23 -> ' ' /:
-        0b1011000000010111u16, :/ 24: sti r0,#23 -> mem[mem[48]]=space /:
-        0b0010000000010111u16, :/ 25: ld r0,#23 -> stored space /:
-        0b1111000000100001u16, :/ 26: trap x21 -> ' ' /:
-        0b0010000000010110u16, :/ 27: ld r0,#22 -> 'w' /:
-        0b0111000000010110u16, :/ 28: str r0,r0,#22 -> mem[51]='w' /:
-        0b0010000000010101u16, :/ 29: ld r0,#21 -> mem[51] /:
-        0b1111000000100001u16, :/ 30: trap x21 -> w /:
-        0b0010000000001110u16, :/ 31: ld r0,#14 -> 'o' /:
-        0b1111000000100001u16, :/ 32: trap x21 -> o /:
-        0b0010000000010010u16, :/ 33: ld r0,#18 -> 'r' /:
-        0b1111000000100001u16, :/ 34: trap x21 -> r /:
-        0b0010000000001000u16, :/ 35: ld r0,#8 -> 'l' /:
-        0b1111000000100001u16, :/ 36: trap x21 -> l /:
-        0b0010000000001111u16, :/ 37: ld r0,#15 -> 'd' /:
-        0b1111000000100001u16, :/ 38: trap x21 -> d /:
-        0b1001010001111111u16, :/ 39: not r2,r1 /:
-        0b1111000000100101u16, :/ 40: trap x25 -> HALT /:
-        0x0048u16,             :/ 41: 'H' /:
-        43u16,                 :/ 42: pointer -> 43 /:
-        0x0065u16,             :/ 43: 'e' /:
-        0x006Cu16,             :/ 44: 'l' /:
-        0u16,                  :/ 45: st target /:
-        0x006Fu16,             :/ 46: 'o' /:
-        0x0020u16,             :/ 47: ' ' /:
-        49u16,                 :/ 48: pointer -> 49 /:
-        0u16,                  :/ 49: sti target /:
-        0x0077u16,             :/ 50: 'w' /:
-        0u16,                  :/ 51: str target /:
-        0x0072u16,             :/ 52: 'r' /:
-        0x0064u16              :/ 53: 'd' /:
-    };
+    ptr file f = file::open(argv[1], ref "rb");
+    if not f; {
+        printf(ref "%s is not found!\n", argv[1]);
+        exit 1;
+    }
 
-    c.load_code(ref code, sizeof(code) as i16);
+    defer f.destroy();
+
+    isize code_size = f.size();
+    if code_size <= 0 || code_size % 2; {
+        printf(ref "Size of code is %i!\n", code_size);
+        exit 2;
+    }
+
+    ptr i8 buffer = malloc(code_size) as ptr i8;
+    if not buffer; exit 4;
+
+    defer free(buffer);
+
+    if f.read(buffer, code_size) < 0; exit 5;
+    c.load_code(buffer, (code_size) as i16);
 
     u16 inst = c.fetch();
     while inst; {

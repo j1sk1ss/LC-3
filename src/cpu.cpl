@@ -42,11 +42,17 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         }
         :/ trap <code> /:
         case TRAP; {
-            i8 trap = inst & 0b1111111;
+            i8 trap = inst & 0b1111111u16;
             @[no_fall] @[straight] switch trap; {
                 case 0x20; self.registers.set(R0, getc(stdin) as u16);
-                case 0x21; putc((self.registers.get(R0) & 0b11111111) as i32, stdout);
-                case 0x22; puts(self.memory.get(self.registers.get(R0)) as ptr i8);
+                case 0x21; putc((self.registers.get(R0) & 0b11111111u16) as i32, stdout);
+                case 0x22; {
+                    i16 addr = self.registers.get(R0);
+                    while self.memory.get(addr); {
+                        putc(self.memory.get(addr) & 0xFF, stdout);
+                        addr = addr + 1;
+                    }
+                }
                 case 0x23; {}
                 case 0x25; {
                     printf(ref "\n");
@@ -56,8 +62,8 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         }
         :/ jsr /:
         case JSR; {
-            self.registers.set(R7, self.pc + 1);
-            if (inst >> 10) & 0b1; self.pc = (inst & 0b1111111111) as i16;
+            self.registers.set(R7, self.pc as u16);
+            if (inst >> 11) & 0b1; self.pc = (((inst & 0x7FF) << 5) as i16) >> 5;
             else {
                 i8 baseR = get_reg_index(inst, 2);
                 self.pc = self.registers.get(baseR);
@@ -65,17 +71,9 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         }
         :/ br<pzn> / ret /:
         case BR; {
-            i8 p = (inst >> 9)  & 0b1;
-            i8 z = (inst >> 10) & 0b1;
-            i8 n = (inst >> 11) & 0b1;
-            if 
-                not p && not z && not n &&
-                get_reg_index(inst, 2) == 0b111;
-            {
-                self.pc = self.registers.get(R7);
-                break;
-            }
-
+            i8 p    = (inst >> 9)  & 0b1;
+            i8 z    = (inst >> 10) & 0b1;
+            i8 n    = (inst >> 11) & 0b1;
             i16 off = (inst & 0b111111111) as i16;
             if 
                 (self.registers.get_n() && n) ||
@@ -85,6 +83,17 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         }
         :/ jmp <reg> /:
         case JMP; {
+            i8 p = (inst >> 9)  & 0b1;
+            i8 z = (inst >> 10) & 0b1;
+            i8 n = (inst >> 11) & 0b1;
+            if :/ ret case /:
+                not p && not z && not n &&
+                get_reg_index(inst, 2) == 0b111i8;
+            {
+                self.pc = self.registers.get(R7);
+                break;
+            }
+            
             i8 baseR = get_reg_index(inst, 2);
             self.pc = self.registers.get(baseR);
         }
@@ -164,8 +173,10 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
             u16 res;
             i8 dr  = get_reg_index(inst, 3);
             i8 sr1 = get_reg_index(inst, 2);
+
             if ((inst >> 5) & 0b1) as i32; {
-                res = self.registers.get(sr1) + (inst & 0b11111) as i16;
+                i16 imm5 = (((inst & 0x1F) << 11) as i16) >> 11;
+                res = self.registers.get(sr1) + imm5;
                 self.registers.set(dr, res);
             }
             else {

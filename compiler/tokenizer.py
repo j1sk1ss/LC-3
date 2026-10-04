@@ -154,8 +154,17 @@ class LC3Tokenizer:
             consists from parts that are separated by comma.
         """
         import re
-        line = self.code[self.counter].strip()
-        return re.findall(r'"(?:\\.|[^"\\])*"|[^,\s]+', line)
+        import ast
+
+        line: str = self.code[self.counter].strip()
+        tokens: list[str] = re.findall(r'"(?:\\.|[^"\\])*"|[^,\s]+', line)
+
+        return [
+            ast.literal_eval(token)
+            if token.startswith('"') and token.endswith('"')
+            else token
+            for token in tokens
+        ]
 
     @staticmethod
     def read_lc3_file(path: str) -> list[str]:

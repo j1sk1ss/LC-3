@@ -1,14 +1,25 @@
 CPL       ?= cplc
-CPL_FLAGS ?= -O3
+PY        ?= python3
+LC3       ?= compiler/main.py
+
+CPL_FLAGS ?= -O3 --linker gcc
 SRC       ?= main.cpl src/*.cpl
 
-build:
+
+all: build-vm compile-code
+
+build-vm:
 	$(CPL) $(SRC) $(CPL_FLAGS)
 
-run:
-	make build && ./a.out && make clean
+compile-code:
+	$(PY) $(LC3) main.s
+
+run: build-vm compile-code
+	./a.out output.o
+	$(MAKE) clean
 
 clean:
-	rm a.out
+	rm -f a.out output.o
 
-.PHONY: all build run clean
+
+.PHONY: all build-vm compile-code run clean

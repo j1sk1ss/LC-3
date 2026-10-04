@@ -50,23 +50,23 @@ class LC3Coder:
                 case LC3Opcodes.ADD | LC3Opcodes.AND:
                     dr, sr1, data = LC3Registers.from_string(tokens[1]), LC3Registers.from_string(tokens[2]), LC3Registers.from_string(tokens[3])
                     if data is LC3Registers.NOT_A_REGISTER:
-                        word = LC3Word(op, [ LC3Reg(dr), LC3Reg(sr1), LC3Padd(size=1), LC3Imm(int(tokens[3])) ])
+                        word = LC3Word(op, [ LC3Reg(dr), LC3Reg(sr1), LC3Padd(size=1, value=1), LC3Imm(int(tokens[3])) ])
                     else:
                         word = LC3Word(op, [ LC3Reg(dr), LC3Reg(sr1), LC3Padd(size=3), LC3Reg(data) ])
                 case LC3Opcodes.BR | LC3Opcodes.BRP | LC3Opcodes.BRN | LC3Opcodes.BRZ:
                     word = LC3Word(
                         LC3Opcodes.BR,
                         [ 
-                            LC3Padd(size=1, value=1 if op == LC3Opcodes.BRN else 0), 
-                            LC3Padd(size=1, value=1 if op == LC3Opcodes.BRZ else 0),
-                            LC3Padd(size=1, value=1 if op == LC3Opcodes.BRP else 0),
+                            LC3Padd(size=1, value=1 if op in (LC3Opcodes.BRN, LC3Opcodes.BR) else 0), 
+                            LC3Padd(size=1, value=1 if op in (LC3Opcodes.BRZ, LC3Opcodes.BR) else 0),
+                            LC3Padd(size=1, value=1 if op in (LC3Opcodes.BRP, LC3Opcodes.BR) else 0),
                             self.smt.get_or_create_label(tokens[1], 9)
                         ]
                     )
                 case LC3Opcodes.JMP:
                     word = LC3Word(op, [ LC3Padd(size=3), LC3Reg(LC3Registers.from_string(tokens[1])), LC3Padd(size=6) ])
                 case LC3Opcodes.JSR:
-                    word = LC3Word(op, [ LC3Padd(size=1), self.smt.get_or_create_label(tokens[1], 11) ])
+                    word = LC3Word(op, [ LC3Padd(size=1, value=1), self.smt.get_or_create_label(tokens[1], 11) ])
                 case LC3Opcodes.JSRR:
                     word = LC3Word(op, [ LC3Padd(size=3), LC3Reg(LC3Registers.from_string(tokens[1])), LC3Padd(size=6) ])
                 case LC3Opcodes.LD | LC3Opcodes.LDI | LC3Opcodes.ST | LC3Opcodes.STI | LC3Opcodes.LEA:
@@ -86,17 +86,7 @@ class LC3Coder:
                 case LC3Opcodes.RTI:
                     word = LC3Word(op, [LC3Padd(0, 12) ])
                 case LC3Opcodes.TRAP:
-                    command: str = tokens[1]
-                    word = LC3Word(op, [ LC3Padd(0, 4), LC3Imm(
-                        value=(
-                            0x20 if command.upper() == "GETC" else 
-                            0x21 if command.upper() == "OUT"  else 
-                            0x22 if command.upper() == "PUTS" else 
-                            0x23 if command.upper() == "IN"   else 
-                            0x25 if command.upper() == "HALT" else 
-                            0x00
-                        )
-                    ) ])
+                    word = LC3Word(op, [ LC3Padd(0, 4), LC3Imm(value=int(tokens[1], 0), size=8) ])
                 case _:
                     if tokens[0].split()[-1][-1] == ':':
                         word = LC3Word(LC3Opcodes.LB, [ self.smt.get_or_create_label(tokens[0][:-1], 16) ])
@@ -106,15 +96,15 @@ class LC3Coder:
                         
                         match LC3Opcodes.from_string(tokens[1]):
                             case LC3Opcodes.FILL:
-                                word = LC3Word(op, [ self.smt.get_or_create_label(tokens[0], 16), LC3Imm(int(tokens[2], 0), 16) ])
+                                word = LC3Word(LC3Opcodes.FILL, [ self.smt.get_or_create_label(tokens[0], 16), LC3Imm(int(tokens[2], 0), 16) ])
                             case LC3Opcodes.BLKW:
                                 defset: LC3Imm = LC3Imm(0, 16)
                                 if len(tokens) >= 4:
                                     defset = LC3Imm(int(tokens[3], 0), 16)
 
-                                word = LC3Word(op, [ self.smt.get_or_create_label(tokens[0], 16), LC3Imm(int(tokens[2], 0)), defset ])
+                                word = LC3Word(LC3Opcodes.BLKW, [ self.smt.get_or_create_label(tokens[0], 16), LC3Imm(int(tokens[2], 0)), defset ])
                             case LC3Opcodes.STRZ:
-                                word = LC3Word(op, [ self.smt.get_or_create_label(tokens[0], 16), LC3String(tokens[2]) ])
+                                word = LC3Word(LC3Opcodes.STRZ, [ self.smt.get_or_create_label(tokens[0], 16), LC3String(tokens[2]) ])
         except Exception as ex:
             raise EncodingWarning("Label encode error!") from ex
 
@@ -145,14 +135,14 @@ class LC3Coder:
                 word.body[0].cont.set_addr(off)
 
             match word.op:
-                case LC3Opcodes.FILL:
-                    off += 2
+                case LC3Opcodes.LB:
+                    continue
                 case LC3Opcodes.BLKW if isinstance(word.body[1], LC3Imm):
-                    off += word.body[1].value * 2
+                    off += word.body[1].value
                 case LC3Opcodes.STRZ if isinstance(word.body[1], LC3String):
-                    off += (len(word.body[1].string) + 1) // 2 * 2
-
-            off += 2 # 16 bits for a word -> 2 bytes offset per each instruction
+                    off += len(word.body[1].string) + 1
+                case _:
+                    off += 1 # 16 bits for a word -> LC-3 base counter
 
         self.state.linked = True
 
@@ -167,9 +157,13 @@ class LC3Coder:
         body: list[str] = []
 
         for word in self.words:
+            if word.op is LC3Opcodes.LB:
+                continue
+
+            pc += 1
             match word.op:
-                case LC3Opcodes.LB:
-                    continue
+                case LC3Opcodes.FILL:
+                    body.append(word.body[1].encode())
                 case LC3Opcodes.BLKW if isinstance(word.body[1], LC3Imm) and isinstance(word.body[2], LC3Imm):
                     for _ in range(word.body[1].value):
                         body.append(word.body[2].encode())
@@ -179,7 +173,5 @@ class LC3Coder:
                 case _:
                     word.relink(pc)
                     body.append(word.encode())
-
-            pc += 1
 
         return body

@@ -37,13 +37,16 @@ class LC3Lb(LC3Body):
         """ Get related addr to the current program counter.
             @pc - Current program counter.
         """
-        return LC3Lb(self.addr - (pc * 2)) # By two given the size of single instruction (16bits)
+        return LC3Lb(self.addr - pc) # By two given the size of single instruction (16bits)
 
     def encode(self) -> str:
         if not self.addr:
             raise Exception("Not allocated label was attempted to encode!")
         
-        return f"{self.addr:08b}"
+        return f"{self.addr:012b}"
+
+    def __repr__(self) -> str:
+        return f"{self.id}<{self.addr}>"
 
 class LC3Imm(LC3Body):
     def __init__(self, value: int, size: int = 5) -> None:
@@ -54,14 +57,21 @@ class LC3Imm(LC3Body):
         value = self.value & ((1 << self.size) - 1)
         return f"{value:0{self.size}b}"
 
+    def __repr__(self) -> str:
+        return f"imm<{self.value}>"
+
 class LC3String(LC3Body):
-    def __init__(self, string: str) -> None:
+    def __init__(self, string: str, term: bool = True) -> None:
         self.string: str = string
-        bits = ''.join(f'{b:08b}' for b in self.string.encode())
-        self.blocks: list[str] = [ bits[i:i + 16] for i in range(0, len(bits), 16) ]
+        self.blocks: list[str] = [ f'{b:016b}' for b in self.string.encode() ]
+        if term:
+            self.blocks.append(f'{0b0:016b}')
 
     def encode(self) -> str:
         return ''.join(f'{b:08b}' for b in self.string.encode())
+
+    def __repr__(self) -> str:
+        return f"str<{self.string}>"
 
 class LC3Reg(LC3Body):
     def __init__(self, value: LC3Registers) -> None:
@@ -85,7 +95,8 @@ class LC3PaddBody(LC3Body):
         self.cont: LC3Body = cont
     
     def encode(self) -> str:
-        return self.cont.encode().zfill(self.size)
+        encoded = self.cont.encode()
+        return encoded.zfill(self.size)[-self.size:]
 
 class LC3Word:
     def __init__(self, op: LC3Opcodes, body: list[LC3Body]) -> None:
@@ -120,3 +131,6 @@ class LC3Symtable:
         lb: LC3Lb = LC3Lb()
         self.labels[name] = lb
         return LC3PaddBody(lb, 0, padd)
+
+    def __repr__(self) -> str:
+        return f"labels: {self.labels}"

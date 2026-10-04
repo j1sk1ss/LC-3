@@ -8,8 +8,8 @@ container mem {
 
     @[self] @[abi]
     function init(ptr mem self, @[not_null] ptr u16 code, i16 code_size) -> i0;
-    @[self] function get(ptr mem self, i16 addr) -> u16;
-    @[self] function set(ptr mem self, i16 addr, u16 val) -> i0;
+    @[self] function get(ptr mem self, u16 addr) -> u16;
+    @[self] function set(ptr mem self, u16 addr, u16 val) -> i0;
 }
 
 #endif

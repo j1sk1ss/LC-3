@@ -43,7 +43,7 @@ function regs::get_p(ptr regs self) -> i8 {
 }
 
 function regs::set_nzp(ptr regs self, u16 val) -> i0 {
-    if not val;      self.set_z(1);
-    else if val > 0; self.set_p(1);
-    else             self.set_n(1);
+    if not val;           self.set_z(1);
+    else if val & 0x8000; self.set_n(1);
+    else                  self.set_p(1);
 }

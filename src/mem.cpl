@@ -4,10 +4,10 @@ function mem::init(ptr mem self, ptr u16 code, i16 code_size) -> i0 {
     memcpy(ref self.code, code, code_size as u64);
 }
 
-function mem::get(ptr mem self, i16 addr) -> u16 {
+function mem::get(ptr mem self, u16 addr) -> u16 {
     self.code[addr]
 }
 
-function mem::set(ptr mem self, i16 addr, u16 val) -> i0 {
+function mem::set(ptr mem self, u16 addr, u16 val) -> i0 {
     self.code[addr] = val;
 }

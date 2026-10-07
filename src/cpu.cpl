@@ -5,7 +5,7 @@
 
 function cpu::init(ptr cpu self) -> i0 {
     self.registers.init();
-    self.pc = 0 as i16;
+    self.pc = 0i16;
 }
 
 function cpu::load_code(ptr cpu self, ptr u16 code, i16 code_size) -> i0 {
@@ -14,7 +14,7 @@ function cpu::load_code(ptr cpu self, ptr u16 code, i16 code_size) -> i0 {
 
 function cpu::fetch(ptr cpu self) -> u16 {
     u16 inst = self.memory.code[self.pc];
-    self.pc += 1;
+    self.pc += 1i16;
     inst
 }
 
@@ -30,7 +30,7 @@ For instance:
 }
 
 function cpu::execute(ptr cpu self, u16 inst) -> i0 {
-    i8 opcode = (inst >> 12) & 0b1111;
+    i8 opcode = (inst >> 12) & 0b1111i8;
     @[no_fall] switch opcode; {
         :/ not dr, sr + NZP /:
         case NOT; {
@@ -42,7 +42,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         }
         :/ trap <code> /:
         case TRAP; {
-            i8 trap = inst & 0b1111111u16;
+            i8 trap = inst & 0b1111111i8;
             @[no_fall] @[straight] switch trap; {
                 case 0x20; self.registers.set(R0, getc(stdin) as u16);
                 case 0x21; putc((self.registers.get(R0) & 0b11111111u16) as i32, stdout);
@@ -53,7 +53,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
                         addr = addr + 1;
                     }
                 }
-                case 0x23; {}
+                @[fall] case 0x23; {}
                 case 0x25; {
                     printf(ref "\n");
                     loop {}
@@ -63,7 +63,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         :/ jsr /:
         case JSR; {
             self.registers.set(R7, self.pc as u16);
-            if (inst >> 11) & 0b1; self.pc += (((inst & 0x7FF) << 5) as i16) >> 5;
+            if (inst >> 11) & 0b1; self.pc += inst |~ 11i16;
             else {
                 i8 baseR = get_reg_index(inst, 2);
                 self.pc = self.registers.get(baseR);
@@ -74,7 +74,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
             i8 p    = (inst >> 9)  & 0b1;
             i8 z    = (inst >> 10) & 0b1;
             i8 n    = (inst >> 11) & 0b1;
-            i16 off = ((inst & 0x1FF) as i16 << 7) >> 7;
+            i16 off = inst |~ 9i16;
             if 
                 (self.registers.get_n() && n) ||
                 (self.registers.get_z() && z) ||
@@ -100,7 +100,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         :/ lea dr, <addr> /:
         case LEA; {
             i8 dr   = get_reg_index(inst, 3);
-            i16 off = ((inst & 0x1FF) as i16 << 7) >> 7;
+            i16 off = inst |~ 9i16;
             u16 res = off + self.pc;
             self.registers.set(dr, res);
             self.registers.set_nzp(res);
@@ -108,7 +108,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         :/ ld dr, <addr> /:
         case LD; {
             i8 dr   = get_reg_index(inst, 3);
-            i16 off = ((inst & 0x1FF) as i16 << 7) >> 7;
+            i16 off = inst |~ 9i16;
             u16 res = self.memory.get(off + self.pc);
             self.registers.set(dr, res);
             self.registers.set_nzp(res);
@@ -116,7 +116,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         :/ ldi dr, <addr> /:
         case LDI; {
             i8 dr    = get_reg_index(inst, 3);
-            i16 off = ((inst & 0x1FF) as i16 << 7) >> 7;
+            i16 off = inst |~ 9i16;
             u16 pres = self.memory.get(off + self.pc);
             u16 res  = self.memory.get(pres);
             self.registers.set(dr, res);
@@ -126,7 +126,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         case LDR; {
             i8 dr    = get_reg_index(inst, 3);
             i8 baseR = get_reg_index(inst, 2);
-            i16 off  = ((inst & 0x3F) as i16 << 10) >> 10;
+            i16 off  = inst |~ 6i16;
 
             u16 addr = self.registers.get(baseR) + off;
             u16 res  = self.memory.get(addr);
@@ -137,13 +137,13 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         :/ st sr, <addr> /:
         case ST; {
             i8 sr   = get_reg_index(inst, 3);
-            i16 off = ((inst & 0x1FF) as i16 << 7) >> 7;
+            i16 off = inst |~ 9i16;
             self.memory.set(off + self.pc, self.registers.get(sr));
         }
         :/ sti sr, <addr> /:
         case STI; {
             i8 dr    = get_reg_index(inst, 3);
-            i16 off  = ((inst & 0x1FF) as i16 << 7) >> 7;
+            i16 off  = inst |~ 9i16;
             u16 pres = self.memory.get(off + self.pc);
             self.memory.set(pres, self.registers.get(dr));
         }
@@ -151,8 +151,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
         case STR; {
             i8 sr    = get_reg_index(inst, 3);
             i8 baseR = get_reg_index(inst, 2);
-            i16 off  = ((inst & 0x3F) as i16 << 10) >> 10;
-
+            i16 off  = inst |~ 6i16;
             u16 addr = self.registers.get(baseR) + off;
             self.memory.set(addr, self.registers.get(sr));
         }
@@ -180,7 +179,7 @@ function cpu::execute(ptr cpu self, u16 inst) -> i0 {
             i8 sr1 = get_reg_index(inst, 2);
 
             if ((inst >> 5) & 0b1) as i32; {
-                i16 imm5 = (((inst & 0x1F) << 11) as i16) >> 11;
+                i16 imm5 = inst |~ 5i16;
                 res = self.registers.get(sr1) + imm5;
                 self.registers.set(dr, res);
             }

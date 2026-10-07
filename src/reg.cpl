@@ -1,7 +1,7 @@
 #include "../include/reg.cplh"
 
 function regs::init(ptr regs self) -> i0 {
-    memset(ref self.registers, 0 as i32, sizeof(self.registers));
+    memset(ref self.registers, 0i32, sizeof(self.registers));
 }
 
 function regs::get(ptr regs self, i8 r) -> u16 {
